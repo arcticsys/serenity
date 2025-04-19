@@ -11,6 +11,15 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.3.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <ProjectReference Include="../PKHeX/PKHeX.Core/PKHeX.Core.csproj" PrivateAssets="All" />
+    <PackageReference Include="System.Resources.Extensions" Version="9.0.4" />
+    <ProjectReference Include="./PKHeX/PKHeX.Core/PKHeX.Core.csproj" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Yes, this makes it so .NET doesn't cry about parts of PKHeX (that aren't even being explicitly used) having issues alongside libraries from this project making ambiguity with PKHeX functions. -->
+    <Compile Remove="PKHeX/**" />
+    <EmbeddedResource Remove="PKHeX/**" />
+    <None Remove="PKHeX/**" />
+    <Content Remove="PKHeX/**" />
   </ItemGroup>
 </Project>
