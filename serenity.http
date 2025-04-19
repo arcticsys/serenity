@@ -1,0 +1,6 @@
+@serenity_HostAddress = http://localhost:5008
+
+GET {{serenity_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
