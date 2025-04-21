@@ -28,7 +28,7 @@ namespace serenity.Controllers {
                         valid = r.Valid
                     }).ToArray()
                 };
-                
+
                 return Ok(response);
             } catch (Exception ex) {
                 return BadRequest(new { error = ex.Message });
