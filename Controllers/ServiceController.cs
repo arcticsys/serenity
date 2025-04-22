@@ -9,6 +9,11 @@ namespace serenity.Controllers {
     [ApiController]
     [Route("api")]
     public class ServiceController : ControllerBase {
+        [HttpGet("hello")]
+        public IActionResult Hello() {
+            return Ok(new { online = true, message = "Hello from Serenity!" });
+        }
+
         [HttpPost("islegal")]
         public IActionResult CheckLegality([FromBody] PokemonRequest request) {
             try {
