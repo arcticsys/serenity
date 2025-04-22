@@ -14,7 +14,7 @@ namespace serenity.Controllers {
             try {
                 byte[] data = Convert.FromBase64String(request.pkmdata);
 
-                PKM pkm = (PKM)FileUtil.GetSupportedFile(data, ".pk");
+                PKM? pkm = FileUtil.GetSupportedFile(data, ".pk") as PKM;
                 if (pkm == null)
                     return BadRequest(new { error = "Invalid Pokémon data format" });
 
@@ -43,7 +43,7 @@ namespace serenity.Controllers {
                     return BadRequest(new { error = "Invalid pokemon data" });
                 }
 
-                PKM pkm = (PKM)FileUtil.GetSupportedFile(data, ".pk");
+                PKM? pkm = FileUtil.GetSupportedFile(data, ".pk") as PKM;
                 if (pkm == null)
                     return BadRequest(new { error = "Invalid Pokémon data format" });
 
