@@ -94,7 +94,7 @@ namespace serenity.Controllers {
 
                 SaveFile? sav = SaveUtil.GetVariantSAV(data);
                 if (sav == null || !typeof(SaveFile).IsAssignableFrom(sav.GetType())) {
-                    return BadRequest(new { error = "Invalid save file format" });
+                    return StatusCode(422, new { error = "Data is not valid save data" });
                 }
 
                 var settings = new Newtonsoft.Json.JsonSerializerSettings {
@@ -162,34 +162,44 @@ namespace serenity.Controllers {
                 RemoveInvalidPKMs(jsonobj);
 
                 foreach (var property in jsonobj.Properties()) {
-                    if (property.Name == "PartyData" || property.Name == "BoxData") {
-                        if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.Array) {
+                    if (property.Name == "PartyData" || property.Name == "BoxData")
+                    {
+                        if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.Array)
+                        {
                             var array = (Newtonsoft.Json.Linq.JArray)property.Value;
-                            foreach (var pkm in array) {
-                                if (pkm.Value<bool>("ChecksumValid")) {
+                            foreach (var pkm in array)
+                            {
+                                if (pkm.Value<bool>("ChecksumValid"))
+                                {
                                     var speciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Value<ushort>("Species"), pkm.Value<int>("Language"), pkm.Value<byte>("Format"));
                                     var speciesVariations = new List<string>();
-                                    for (int lang = 0; lang <= 10; lang++) {
+                                    for (int lang = 0; lang <= 10; lang++)
+                                    {
                                         string langSpeciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Value<ushort>("Species"), lang, pkm.Value<byte>("Format"));
                                         speciesVariations.Add(string.IsNullOrEmpty(langSpeciesName) ? "" : langSpeciesName);
                                     }
                                     pkm["SpeciesNativeName"] = speciesName;
                                     pkm["SpeciesName"] = JArray.FromObject(speciesVariations);
-                                } else {
+                                }
+                                else
+                                {
                                     string badEggText = pkm.Value<int>("Generation") == 3 ? "Bad EGG" : "Bad Egg";
                                     pkm["SpeciesNativeName"] = badEggText;
 
                                     var badEggVariations = new List<string>();
-                                    for (int lang = 0; lang <= 10; lang++) {
+                                    for (int lang = 0; lang <= 10; lang++)
+                                    {
                                         badEggVariations.Add(badEggText);
                                     }
                                     pkm["SpeciesName"] = JArray.FromObject(badEggVariations);
                                 }
                             }
                         }
+                    } else if (property.Name == "TimeStampCurrent" || property.Name == "TimeStampPrevious") {
+                        double seconds = BitConverter.Int64BitsToDouble((long)property.Value);
+                        property.Value = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(seconds);
                     }
                 }
-
                 json = jsonobj.ToString();
                 return Content(json, "application/json");
             } catch (Exception ex) {

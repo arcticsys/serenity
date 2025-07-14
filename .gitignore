@@ -4,3 +4,4 @@ util/*.pk*
 util/*-response*
 util/*.sav
 util/main
+util/*.txt
