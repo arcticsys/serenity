@@ -13,18 +13,14 @@ namespace serenity.Controllers {
         public IActionResult Hello() {
             return Ok(new { online = true, message = "Hello from Serenity!" });
         }
-
         [HttpPost("islegal")]
         public IActionResult CheckLegality([FromBody] PokemonRequest request) {
             try {
                 byte[] data = Convert.FromBase64String(request.pkmdata);
-
                 PKM? pkm = FileUtil.GetSupportedFile(data, ".pk") as PKM;
                 if (pkm == null)
                     return BadRequest(new { error = "Invalid Pokémon data format" });
-
                 var la = new LegalityAnalysis(pkm);
-
                 var response = new {
                     isLegal = la.Valid,
                     reasons = la.Results.Select(r => new {
@@ -33,13 +29,11 @@ namespace serenity.Controllers {
                         valid = r.Valid
                     }).ToArray()
                 };
-
                 return Ok(response);
             } catch (Exception ex) {
                 return BadRequest(new { error = ex.Message });
             }
         }
-
         [HttpPost("pkmdata")]
         public IActionResult GetPokemonData([FromBody] PokemonRequest request) {
             try {
@@ -47,20 +41,16 @@ namespace serenity.Controllers {
                 if (data == null || data.Length == 0) {
                     return BadRequest(new { error = "Invalid pokemon data" });
                 }
-
                 PKM? pkm = FileUtil.GetSupportedFile(data, ".pk") as PKM;
                 if (pkm == null) {
                     return BadRequest(new { error = "Invalid Pokémon data format" });
                 }
-
                 var speciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Species, pkm.Language, pkm.Format);
                 var speciesVariations = new List<string>();
-
                 for (int lang = 0; lang <= 10; lang++) {
                     string langSpeciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Species, lang, pkm.Format);
                     speciesVariations.Add(string.IsNullOrEmpty(langSpeciesName) ? "" : langSpeciesName);
                 }
-
                 var settings = new JsonSerializerSettings {
                     ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
                     NullValueHandling = NullValueHandling.Ignore,
@@ -71,19 +61,16 @@ namespace serenity.Controllers {
                         args.ErrorContext.Handled = true;
                     }
                 };
-
                 var json = JsonConvert.SerializeObject(pkm, settings);
                 var pkmObject = Newtonsoft.Json.Linq.JObject.Parse(json);
                 pkmObject["SpeciesNativeName"] = speciesName;
                 pkmObject["SpeciesName"] = JArray.FromObject(speciesVariations);
-
                 json = pkmObject.ToString(Formatting.None);
                 return Content(json, "application/json");
             } catch (Exception ex) {
                 return BadRequest(new { error = ex.Message });
             }
         }
-
         [HttpPost("savedata")]
         public IActionResult GetSaveData([FromBody] SaveFileRequest request) {
             try {
@@ -91,12 +78,10 @@ namespace serenity.Controllers {
                 if (data == null || data.Length == 0) {
                     return BadRequest(new { error = "Invalid save data" });
                 }
-
                 SaveFile? sav = SaveUtil.GetVariantSAV(data);
                 if (sav == null || !typeof(SaveFile).IsAssignableFrom(sav.GetType())) {
                     return StatusCode(422, new { error = "Data is not valid save data" });
                 }
-
                 var settings = new Newtonsoft.Json.JsonSerializerSettings {
                     ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore,
                     NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore,
@@ -107,10 +92,8 @@ namespace serenity.Controllers {
                         args.ErrorContext.Handled = true;
                     }
                 };
-
                 var json = Newtonsoft.Json.JsonConvert.SerializeObject(sav, settings);
                 var jsonobj = Newtonsoft.Json.Linq.JObject.Parse(json);
-
                 void RemoveDataFields(Newtonsoft.Json.Linq.JToken token) {
                     if (token.Type == Newtonsoft.Json.Linq.JTokenType.Object) {
                         var obj = (Newtonsoft.Json.Linq.JObject)token;
@@ -133,7 +116,6 @@ namespace serenity.Controllers {
                         }
                     }
                 }
-
                 void RemoveInvalidPKMs(Newtonsoft.Json.Linq.JToken token) {
                     if (token.Type == Newtonsoft.Json.Linq.JTokenType.Object) {
                         var obj = (Newtonsoft.Json.Linq.JObject)token;
@@ -157,49 +139,64 @@ namespace serenity.Controllers {
                         }
                     }
                 }
-
                 RemoveDataFields(jsonobj);
                 RemoveInvalidPKMs(jsonobj);
-
+                static long? GetSaveTimestamp(SaveFile sav, bool current = true) {
+                    return sav switch {
+                        SAV6 s => current ? TryParseSafe(s.Played.LastSavedTime) : null,
+                        SAV7 s => current ? TryParseSafe(s.Played.LastSavedTime) : null,
+                        SAV8BS s => current ? TryParseSafe(s.System.LastSavedTime) : null,
+                        SAV8LA s => current ? TryParseSafeDateTime(s.LastSaved.Timestamp) : null,
+                        SAV8SWSH s => current ? TryParseSafe(s.Played.LastSavedTime) : null,
+                        SAV9SV s => current ? TryParseSafeDateTime(s.LastSaved.Timestamp) : null,
+                        _ => null // other save types without timestamps
+                    };
+                    static long? TryParseSafe(string? input) {
+                        if (string.IsNullOrEmpty(input)) return null;
+                        input = input.Replace('ː', ':');
+                        if (DateTime.TryParse(input, out var dt)) {
+                            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                            return (long?)(dt.ToUniversalTime() - epoch).TotalSeconds;
+                        }
+                        return null;
+                    }
+                    static long? TryParseSafeDateTime(DateTime? input) {
+                        if (input.HasValue) {
+                            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+                            return (long?)(input.Value.ToUniversalTime() - epoch).TotalSeconds;
+                        }
+                        return null;
+                    }
+                }
                 foreach (var property in jsonobj.Properties()) {
-                    if (property.Name == "PartyData" || property.Name == "BoxData")
-                    {
-                        if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.Array)
-                        {
+                    if (property.Name == "PartyData" || property.Name == "BoxData") {
+                        if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.Array) {
                             var array = (Newtonsoft.Json.Linq.JArray)property.Value;
-                            foreach (var pkm in array)
-                            {
-                                if (pkm.Value<bool>("ChecksumValid"))
-                                {
+                            foreach (var pkm in array) {
+                                if (pkm.Value<bool>("ChecksumValid")) {
                                     var speciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Value<ushort>("Species"), pkm.Value<int>("Language"), pkm.Value<byte>("Format"));
                                     var speciesVariations = new List<string>();
-                                    for (int lang = 0; lang <= 10; lang++)
-                                    {
+                                    for (int lang = 0; lang <= 10; lang++) {
                                         string langSpeciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Value<ushort>("Species"), lang, pkm.Value<byte>("Format"));
                                         speciesVariations.Add(string.IsNullOrEmpty(langSpeciesName) ? "" : langSpeciesName);
                                     }
                                     pkm["SpeciesNativeName"] = speciesName;
                                     pkm["SpeciesName"] = JArray.FromObject(speciesVariations);
-                                }
-                                else
-                                {
+                                } else {
                                     string badEggText = pkm.Value<int>("Generation") == 3 ? "Bad EGG" : "Bad Egg";
                                     pkm["SpeciesNativeName"] = badEggText;
-
                                     var badEggVariations = new List<string>();
-                                    for (int lang = 0; lang <= 10; lang++)
-                                    {
+                                    for (int lang = 0; lang <= 10; lang++) {
                                         badEggVariations.Add(badEggText);
                                     }
                                     pkm["SpeciesName"] = JArray.FromObject(badEggVariations);
                                 }
                             }
                         }
-                    } else if (property.Name == "TimeStampCurrent" || property.Name == "TimeStampPrevious") {
-                        double seconds = BitConverter.Int64BitsToDouble((long)property.Value);
-                        property.Value = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(seconds);
                     }
                 }
+                long? timestamp = GetSaveTimestamp(sav, current: true);
+                jsonobj["Timestamp"] = timestamp.HasValue ? timestamp.Value : (long?)null;
                 json = jsonobj.ToString();
                 return Content(json, "application/json");
             } catch (Exception ex) {
@@ -207,15 +204,12 @@ namespace serenity.Controllers {
             }
         }
     }
-
     public class PokemonRequest {
         public string pkmdata { get; set; } = string.Empty;
     }
-
     public class SaveFileRequest {
         public string savedata { get; set; } = string.Empty;
     }
-
     public class CheckResultDetail {
         public string Identifier { get; set; } = string.Empty;
         public string Comment { get; set; } = string.Empty;
