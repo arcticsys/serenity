@@ -42,8 +42,8 @@ namespace serenity.Controllers {
                     return BadRequest(new { error = "Invalid pokemon data" });
                 }
                 PKM? pkm = FileUtil.GetSupportedFile(data, ".pk") as PKM;
-                if (pkm == null) {
-                    return BadRequest(new { error = "Invalid Pokémon data format" });
+                if (pkm == null || !typeof(PKM).IsAssignableFrom(pkm.GetType())) {
+                    return StatusCode(422, new { error = "Data is not valid PKM data" });
                 }
                 var speciesName = SpeciesName.GetSpeciesNameGeneration(pkm.Species, pkm.Language, pkm.Format);
                 var speciesVariations = new List<string>();
